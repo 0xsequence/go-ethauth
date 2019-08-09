@@ -1,28 +1,28 @@
 Ethereum Web Token
 ===================
 
-# Format
+## Format
 
-`ewt = address.payload.proof`
+`ewt = eth.<address>.<payload>.<proof>`
 
-## address
+### address
 
 the ethereum public address in plain-text: `"0xabc..."`
 
 
-## payload
+### payload
 
 the message to sign: base64UrlEncode("Login to SkyWeaver.net")
 * .. lets use ethSignedTypeData(..)
 
 
 
-## proof
+### proof
 
 the ethWallet.signMessage(payload)
 
 
-# Authorization
+## Authorization
 
 http request header:
 
@@ -30,7 +30,7 @@ http request header:
 
 
 
-# TODO
+## TODO
 
 1. issued at?
 
