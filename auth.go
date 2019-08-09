@@ -1,3 +1,0 @@
-package ethwebtoken
-
-// todo; auth
