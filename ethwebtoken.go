@@ -8,9 +8,12 @@ import (
 	"strings"
 )
 
-func New() (*ETHWebToken, error) {
+func New(validators ...ValidatorFunc) (*ETHWebToken, error) {
 	ewt := &ETHWebToken{
-		validators: []ValidatorFunc{ValidateEOAToken},
+		validators: validators,
+	}
+	if len(ewt.validators) == 0 {
+		ewt.validators = []ValidatorFunc{ValidateEOAToken}
 	}
 	return ewt, nil
 }
@@ -19,7 +22,7 @@ type ETHWebToken struct {
 	validators []ValidatorFunc
 }
 
-func (w *ETHWebToken) ConfigValidators(validators ...ValidatorFunc) error {
+func (w *ETHWebToken) SetValidators(validators ...ValidatorFunc) error {
 	if len(validators) == 0 {
 		return fmt.Errorf("ethwebtoken: validator list is empty")
 	}
