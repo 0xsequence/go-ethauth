@@ -51,14 +51,20 @@ determine the EOA address, or you may have a different encoding such as one used
 to validate the contract-based account signature.
 
 
-## Authorization
+## HTTP Authorization Header
 
-http request header:
+EWT's can be used similarly to JWT's, passed to the 'Authorization' header of a HTTP request.
+
+The format of the header is:
 
 `Authorization: Bearer <ewt>`
 
+for example:
 
-## Example signature
+`Authorization: Bearer eth.0x8ec767428b824b39c307085e1b9f035464907d31.eyJpYXQiOjE1OTQ3NDMxODEsImV4cCI6MTU5NDc0MzQ4MX0.0x9070796b0ed4597fdfd3ed89c13f26422dd6375329939ab0aa0a65ddafbe10af1048a3bebfdf390127270b1955fa1301afaa10df98890b6a2924ef812acf2ab71c`
+
+
+## Example EWT encoding / decoding
 
 ### EOA account signature
 
