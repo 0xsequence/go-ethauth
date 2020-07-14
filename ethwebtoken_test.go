@@ -1,26 +1,93 @@
 package ethwebtoken
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/arcadeum/ethkit/ethcoder"
+	"github.com/arcadeum/ethkit/ethwallet"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestEncodeDecodeToken(t *testing.T) {
-	address := "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1"
-	payload := "Please sign this message!"
-	proof := "0x0a390122d3c539f45f76b918a8211d3bf928443589871ad4ecbd7c5e1ea39f3b7dae1238ed784b03da2f0dc3e3def70d45796c5dba0bd580e407207f129bfbd71c"
-
-	ewt, token, err := EncodeToken(address, payload, proof)
+func TestEncodeDecodeFromEOA(t *testing.T) {
+	ewt, err := New()
 	assert.NoError(t, err)
-	assert.NotNil(t, ewt)
-	assert.NotEmpty(t, token)
 
-	ok, ewt, err := DecodeToken(token)
+	wallet, err := ethwallet.NewWalletFromRandomEntropy()
+	assert.NoError(t, err)
+
+	claims := Claims{
+		IssuedAt:  time.Now().Unix(),
+		ExpiresAt: time.Now().Unix() + int64(time.Duration(time.Minute*5).Seconds()),
+	}
+	assert.NoError(t, claims.Valid())
+
+	msgBytes, _ := json.Marshal(claims)
+
+	// sign the message
+	sig, err := wallet.SignMessage(msgBytes)
+	assert.NoError(t, err)
+	hexSig := ethcoder.HexEncode(sig)
+
+	// encode the ewt
+	token, tokenString, err := ewt.EncodeToken(wallet.Address().String(), string(msgBytes), hexSig)
+	assert.NoError(t, err)
+	assert.True(t, strings.HasPrefix(tokenString, ewtPrefix))
+
+	// decode the ewt
+	ok, token, err := ewt.DecodeToken(tokenString)
 	assert.NoError(t, err)
 	assert.True(t, ok)
 	assert.NotNil(t, ewt)
+	assert.Equal(t, strings.ToLower(wallet.Address().String()), token.Address())
+}
 
-	assert.Equal(t, strings.ToLower(address), ewt.Address())
+func TestTokenClaims(t *testing.T) {
+	extraSecs := int64(10 * 60) // 10 minutes
+
+	// valid claims
+	{
+		claims := Claims{
+			IssuedAt:  time.Now().Unix(),
+			ExpiresAt: time.Now().Unix() + extraSecs,
+		}
+		assert.NoError(t, claims.Valid())
+
+	}
+
+	// invalid claims
+	{
+		// invalid -- issuedAt is in the future
+		claims := Claims{
+			IssuedAt:  time.Now().Unix() + extraSecs,
+			ExpiresAt: time.Now().Unix() + extraSecs,
+		}
+		assert.Error(t, claims.Valid())
+		assert.Contains(t, claims.Valid().Error(), "iat")
+
+		// invalid -- issuedAt is unset
+		claims = Claims{
+			ExpiresAt: time.Now().Unix() + extraSecs,
+		}
+		assert.Error(t, claims.Valid())
+		assert.Contains(t, claims.Valid().Error(), "iat")
+
+		// invalid -- expiry is in the past
+		claims = Claims{
+			IssuedAt:  time.Now().Unix(),
+			ExpiresAt: time.Now().Unix() - extraSecs,
+		}
+		assert.Error(t, claims.Valid())
+		assert.Contains(t, claims.Valid().Error(), "expired")
+
+		// invalid -- expiry is unset
+		claims = Claims{
+			IssuedAt: time.Now().Unix(),
+		}
+		assert.Error(t, claims.Valid())
+		assert.Contains(t, claims.Valid().Error(), "expired")
+	}
+
 }
