@@ -4,25 +4,49 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"math/big"
 	"strings"
+
+	"github.com/arcadeum/ethkit/ethrpc"
 )
 
+type ETHWebToken struct {
+	validators []ValidatorFunc
+
+	ethereumJsonRpcURL string
+	provider           *ethrpc.Provider
+	chainID            *big.Int
+}
+
 func New(validators ...ValidatorFunc) (*ETHWebToken, error) {
-	ewt := &ETHWebToken{
-		validators: validators,
-	}
+	ewt := &ETHWebToken{validators: validators}
 	if len(ewt.validators) == 0 {
-		ewt.validators = []ValidatorFunc{ValidateEOAToken}
+		ewt.validators = []ValidatorFunc{ValidateEOAToken, ValidateContractAccountToken}
 	}
 	return ewt, nil
 }
 
-type ETHWebToken struct {
-	validators []ValidatorFunc
+func (w *ETHWebToken) ConfigJsonRpcProvider(ethereumJsonRpcURL string) error {
+	var err error
+
+	w.provider, err = ethrpc.NewProvider(ethereumJsonRpcURL)
+	if err != nil {
+		return err
+	}
+
+	chainID, err := w.provider.ChainID(context.Background())
+	if err != nil {
+		return err
+	}
+	w.chainID = chainID
+
+	w.ethereumJsonRpcURL = ethereumJsonRpcURL
+	return nil
 }
 
-func (w *ETHWebToken) SetValidators(validators ...ValidatorFunc) error {
+func (w *ETHWebToken) ConfigValidators(validators ...ValidatorFunc) error {
 	if len(validators) == 0 {
 		return fmt.Errorf("ethwebtoken: validator list is empty")
 	}
@@ -30,19 +54,19 @@ func (w *ETHWebToken) SetValidators(validators ...ValidatorFunc) error {
 	return nil
 }
 
-func (w *ETHWebToken) EncodeToken(address, message, signature string) (*Token, string, error) {
+func (w *ETHWebToken) EncodeToken(address string, claims Claims, signature string) (*Token, string, error) {
 	if address == "" || len(address) != 42 || address[0:2] != "0x" {
 		return nil, "", fmt.Errorf("ethwebtoken: invalid address")
 	}
-	if message == "" || len(message) < 2 {
-		return nil, "", fmt.Errorf("ethwebtoken: invalid message")
+	if err := claims.Valid(); err != nil {
+		return nil, "", fmt.Errorf("ethwebtoken: invalid claims, %w", err)
 	}
 	if signature == "" || signature[0:2] != "0x" {
 		return nil, "", fmt.Errorf("ethwebtoken: signature")
 	}
 
 	// Create token object
-	token, err := newToken(address, message, signature)
+	token, err := newToken(address, claims, signature)
 	if err != nil {
 		return nil, "", err
 	}
@@ -50,7 +74,7 @@ func (w *ETHWebToken) EncodeToken(address, message, signature string) (*Token, s
 	// Validate token signature and claims
 	valid, err := w.ValidateTokenSignature(token)
 	if !valid || err != nil {
-		return nil, "", fmt.Errorf("ethwebtoken: token signature is invalid")
+		return nil, "", fmt.Errorf("ethwebtoken: token signature is invalid - %w", err)
 	}
 
 	valid, err = w.ValidateTokenClaims(token)
@@ -58,11 +82,16 @@ func (w *ETHWebToken) EncodeToken(address, message, signature string) (*Token, s
 		return nil, "", fmt.Errorf("ethwebtoken: token claims are invalid - %w", err)
 	}
 
+	claimsJSON, err := json.Marshal(claims)
+	if err != nil {
+		return nil, "", fmt.Errorf("ethwebtoken: cannot marshal token claims - %w", err)
+	}
+
 	// Encode the token string
 	var tokenb bytes.Buffer
 
 	// prefix
-	tokenb.WriteString(ewtPrefix)
+	tokenb.WriteString(EWTPrefix)
 	tokenb.WriteString(".")
 
 	// address
@@ -70,7 +99,7 @@ func (w *ETHWebToken) EncodeToken(address, message, signature string) (*Token, s
 	tokenb.WriteString(".")
 
 	// message base64 encoded
-	tokenb.WriteString(base64.RawURLEncoding.EncodeToString([]byte(message)))
+	tokenb.WriteString(base64.RawURLEncoding.EncodeToString(claimsJSON))
 	tokenb.WriteString(".")
 
 	// signature
@@ -94,18 +123,24 @@ func (w *ETHWebToken) DecodeToken(tokenString string) (bool, *Token, error) {
 	signature := parts[3]
 
 	// check prefix
-	if prefix != ewtPrefix {
+	if prefix != EWTPrefix {
 		return false, nil, fmt.Errorf("ethwebtoken: not an ewt token")
 	}
 
 	// decode message base64
 	messageBytes, err := base64.RawURLEncoding.DecodeString(messageBase64)
 	if err != nil {
-		return false, nil, fmt.Errorf("ethwebtoken: decoding failed, invalid message")
+		return false, nil, fmt.Errorf("ethwebtoken: decoding failed, invalid claims")
+	}
+
+	var claims Claims
+	err = json.Unmarshal(messageBytes, &claims)
+	if err != nil {
+		return false, nil, fmt.Errorf("ethwebtoken: decoding failed, cannot unmarshal claims")
 	}
 
 	// prepare  token
-	token, err := newToken(address, string(messageBytes), signature)
+	token, err := newToken(address, claims, signature)
 	if err != nil {
 		return false, nil, err
 	}
@@ -114,7 +149,7 @@ func (w *ETHWebToken) DecodeToken(tokenString string) (bool, *Token, error) {
 	// Validate token signature and claims
 	valid, err := w.ValidateTokenSignature(token)
 	if !valid || err != nil {
-		return false, token, fmt.Errorf("ethwebtoken: token signature is invalid")
+		return false, token, fmt.Errorf("ethwebtoken: token signature is invalid - %w", err)
 	}
 
 	valid, err = w.ValidateTokenClaims(token)
@@ -127,7 +162,10 @@ func (w *ETHWebToken) DecodeToken(tokenString string) (bool, *Token, error) {
 
 func (w *ETHWebToken) ValidateTokenSignature(token *Token) (bool, error) {
 	for _, v := range w.validators {
-		isValid, _, _ := v(context.Background(), token)
+		isValid, _, err := v(context.Background(), w.provider, w.chainID, token)
+		if !isValid || err != nil {
+			return false, err
+		}
 		if isValid {
 			return true, nil
 		}
@@ -146,7 +184,3 @@ func (w *ETHWebToken) ValidateTokenClaims(token *Token) (bool, error) {
 func (w *ETHWebToken) Validators() []ValidatorFunc {
 	return w.validators
 }
-
-const (
-	ewtPrefix = "eth"
-)
