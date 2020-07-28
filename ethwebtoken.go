@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/arcadeum/ethkit/ethcoder"
 	"github.com/arcadeum/ethkit/ethrpc"
 )
 
@@ -18,6 +19,17 @@ type ETHWebToken struct {
 	ethereumJsonRpcURL string
 	provider           *ethrpc.Provider
 	chainID            *big.Int
+}
+
+const (
+	EWTPrefix = "eth"
+
+	EWTDomainVersion = "1"
+)
+
+var eip712Domain = ethcoder.TypedDataDomain{
+	Name:    "ETHWebToken",
+	Version: EWTDomainVersion,
 }
 
 func New(validators ...ValidatorFunc) (*ETHWebToken, error) {
@@ -99,7 +111,7 @@ func (w *ETHWebToken) EncodeToken(address string, claims Claims, signature strin
 	tokenb.WriteString(".")
 
 	// message base64 encoded
-	tokenb.WriteString(base64.RawURLEncoding.EncodeToString(claimsJSON))
+	tokenb.WriteString(Base64UrlEncode(claimsJSON))
 	tokenb.WriteString(".")
 
 	// signature
@@ -128,7 +140,7 @@ func (w *ETHWebToken) DecodeToken(tokenString string) (bool, *Token, error) {
 	}
 
 	// decode message base64
-	messageBytes, err := base64.RawURLEncoding.DecodeString(messageBase64)
+	messageBytes, err := Base64UrlDecode(messageBase64)
 	if err != nil {
 		return false, nil, fmt.Errorf("ethwebtoken: decoding failed, invalid claims")
 	}
@@ -183,4 +195,19 @@ func (w *ETHWebToken) ValidateTokenClaims(token *Token) (bool, error) {
 
 func (w *ETHWebToken) Validators() []ValidatorFunc {
 	return w.validators
+}
+
+// Base64 url-variant encoding with padding stripped.
+// Note, this is the same encoding format as JWT.
+func Base64UrlEncode(s []byte) string {
+	return strings.TrimRight(base64.URLEncoding.EncodeToString(s), "=")
+}
+
+// Base64 url-variant decoding with padding stripped.
+// Note, this is the same encoding format as JWT.
+func Base64UrlDecode(s string) ([]byte, error) {
+	if l := len(s) % 4; l > 0 {
+		s += strings.Repeat("=", 4-l)
+	}
+	return base64.URLEncoding.DecodeString(s)
 }
