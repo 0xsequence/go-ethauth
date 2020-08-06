@@ -39,7 +39,9 @@ func ValidateEOAToken(ctx context.Context, provider *ethrpc.Provider, chainID *b
 // ValidateContractAccountToken verifies the account proof of the provided ewt, testing if the
 // token has been signed with a smart-contract based account by calling the EIP-1271
 // method of the remote contract. This method will return success/failure, the
-// account address as a string, and any errors.
+// account address as a string, and any errors. The wallet contract must be deployed in
+// order for this call to be successful. In order test an undeployed smart-wallet, you
+// will have to implement your own custom validator method.
 func ValidateContractAccountToken(ctx context.Context, provider *ethrpc.Provider, chainID *big.Int, token *Token) (bool, string, error) {
 	if provider == nil {
 		return false, "", fmt.Errorf("ValidateContractAccountToken failed. provider is nil")
