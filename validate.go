@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/arcadeum/ethkit/ethcoder"
-
 	"github.com/arcadeum/ethkit/ethrpc"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -27,14 +26,14 @@ func ValidateEOAToken(ctx context.Context, provider *ethrpc.Provider, chainID *b
 		return false, "", fmt.Errorf("ValidateEOAToken failed. Unable to compute token message digest, because %w", err)
 	}
 
-	isValid, err := ValidateEOASignature(token.address, messageDigest, token.signature)
+	isValid, err := ValidateEOASignature(token.Address, messageDigest, token.Signature)
 	if err != nil {
 		return false, "", err
 	}
 	if !isValid {
 		return false, "", fmt.Errorf("ValidateEOAToken failed. invalid EOA signature")
 	}
-	return true, token.Address(), nil
+	return true, token.Address, nil
 }
 
 // ValidateContractAccountToken verifies the account proof of the provided ewt, testing if the
@@ -56,7 +55,7 @@ func ValidateContractAccountToken(ctx context.Context, provider *ethrpc.Provider
 	}
 
 	// Early check to ensure the contract wallet has been deployed
-	walletCode, err := provider.CodeAt(ctx, common.HexToAddress(token.Address()), nil)
+	walletCode, err := provider.CodeAt(ctx, common.HexToAddress(token.Address), nil)
 	if err != nil {
 		return false, "", fmt.Errorf("ValidateContractAccountToken failed. unable to fetch wallet contract code - %w", err)
 	}
@@ -66,7 +65,7 @@ func ValidateContractAccountToken(ctx context.Context, provider *ethrpc.Provider
 
 	// Call EIP-1271 IsValidSignature(bytes32, bytes) method on the deployed wallet. Note: for undeployed
 	// wallets, you will need to implement your own ValidatorFunc with the additional context.
-	signature, err := ethcoder.HexDecode(token.Signature())
+	signature, err := ethcoder.HexDecode(token.Signature)
 	if err != nil {
 		return false, "", fmt.Errorf("ValidateContractAccountToken failed. HexDecode of token.signature failed - %w", err)
 	}
@@ -79,7 +78,7 @@ func ValidateContractAccountToken(ctx context.Context, provider *ethrpc.Provider
 		return false, "", fmt.Errorf("ValidateContractAccountToken failed. EncodeMethodCalldata error")
 	}
 
-	toAddress := common.HexToAddress(token.Address())
+	toAddress := common.HexToAddress(token.Address)
 	txMsg := ethereum.CallMsg{
 		To:   &toAddress,
 		Data: input,
@@ -94,7 +93,7 @@ func ValidateContractAccountToken(ctx context.Context, provider *ethrpc.Provider
 	if !isValid {
 		return false, "", fmt.Errorf("ValidateContractAccountToken failed. invalid signature")
 	}
-	return true, token.Address(), nil
+	return true, token.Address, nil
 }
 
 const (

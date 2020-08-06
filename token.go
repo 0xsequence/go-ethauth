@@ -2,7 +2,6 @@ package ethwebtoken
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/arcadeum/ethkit/ethcoder"
@@ -10,62 +9,51 @@ import (
 
 type Token struct {
 	// "eth" prefix
-	prefix string
+	Prefix string
 
-	// Account addres
-	address string
+	// Account addres (in hex)
+	Address string
 
 	// Claims object, aka, the message key of an EIP712 signature
-	claims Claims
+	Claims Claims
 
-	// Signature of the message by the account address above
-	signature string
-
-	// TokenString is the actual ewt token
-	tokenString string
+	// Signature of the message by the account address above (in hex)
+	Signature string
 }
 
-func newToken(address string, claims Claims, signature string) (*Token, error) {
-	token := &Token{
-		prefix:    EWTPrefix,
-		address:   strings.ToLower(address),
-		claims:    claims,
-		signature: signature,
+func NewToken() *Token {
+	return &Token{
+		Prefix: EWTPrefix,
+		Claims: Claims{
+			EWTVersion: EWTVersion,
+		},
 	}
-	return token, nil
-}
-
-func (t *Token) Address() string {
-	return t.address
-}
-
-func (t *Token) Claims() Claims {
-	return t.claims
-}
-
-func (t *Token) Signature() string {
-	return t.signature
 }
 
 func (t *Token) MessageDigest() ([]byte, error) {
-	return t.claims.MessageDigest()
+	return t.Claims.MessageDigest()
 }
 
-func (t *Token) String() string {
-	if t.tokenString == "" {
-		return "<ethwebtoken: Token, unencoded>"
-	} else {
-		return t.tokenString
-	}
+func (t *Token) MessageTypedData() (*ethcoder.TypedData, error) {
+	return t.Claims.TypedData()
 }
 
 type Claims struct {
-	App       string `json:"app,omitempty"`
-	IssuedAt  int64  `json:"iat,omitempty"`
-	ExpiresAt int64  `json:"exp,omitempty"`
-	Nonce     uint64 `json:"n,omitempty"`
-	Type      string `json:"typ,omitempty"`
-	Origin    string `json:"ogn,omitempty"`
+	App        string `json:"app,omitempty"`
+	IssuedAt   int64  `json:"iat,omitempty"`
+	ExpiresAt  int64  `json:"exp,omitempty"`
+	Nonce      uint64 `json:"n,omitempty"`
+	Type       string `json:"typ,omitempty"`
+	Origin     string `json:"ogn,omitempty"`
+	EWTVersion string `json:"v,omitempty"`
+}
+
+func (c *Claims) SetIssuedAtNow() {
+	c.IssuedAt = time.Now().UTC().Unix()
+}
+
+func (c *Claims) SetExpiryIn(tm time.Duration) {
+	c.ExpiresAt = time.Now().UTC().Unix() + int64(tm.Seconds())
 }
 
 func (c Claims) Valid() error {
@@ -73,6 +61,9 @@ func (c Claims) Valid() error {
 	drift := int64(5 * 60)                                      // 5 minutes
 	max := int64(time.Duration(time.Hour * 24 * 365).Seconds()) // 1 year
 
+	if c.EWTVersion == "" {
+		return fmt.Errorf("claims: ewt version is empty")
+	}
 	if c.App == "" {
 		return fmt.Errorf("claims: app is empty")
 	}
@@ -105,6 +96,9 @@ func (c Claims) Map() map[string]interface{} {
 	}
 	if c.Origin != "" {
 		m["ogn"] = c.Origin
+	}
+	if c.EWTVersion != "" {
+		m["v"] = c.EWTVersion
 	}
 	return m
 }
@@ -145,6 +139,9 @@ func (c Claims) TypedData() (*ethcoder.TypedData, error) {
 	}
 	if c.Origin != "" {
 		claimsType = append(claimsType, ethcoder.TypedDataArgument{Name: "ogn", Type: "string"})
+	}
+	if c.EWTVersion != "" {
+		claimsType = append(claimsType, ethcoder.TypedDataArgument{Name: "v", Type: "string"})
 	}
 	td.Types["Claims"] = claimsType
 
