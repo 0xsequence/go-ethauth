@@ -118,7 +118,9 @@ func ValidateEOASignature(address string, message []byte, signatureHex string) (
 		return false, fmt.Errorf("ValidateEOASignature, signature is not of proper length")
 	}
 	hash := crypto.Keccak256([]byte(msg))
-	sig[64] -= 27 // recovery ID
+	if sig[64] > 1 {
+		sig[64] -= 27 // recovery ID
+	}
 
 	pubkey, err := crypto.SigToPub(hash, sig)
 	if err != nil {
