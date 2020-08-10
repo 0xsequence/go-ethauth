@@ -170,7 +170,7 @@ func (w *ETHWebToken) ValidateToken(token *Token) (bool, error) {
 	}
 	valid = w.ValidateTokenSignature(token)
 	if !valid {
-		return false, fmt.Errorf("ethwebtoken: token signature is invalid - %w", err)
+		return false, fmt.Errorf("ethwebtoken: token signature is invalid")
 	}
 	return true, nil
 }

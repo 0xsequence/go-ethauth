@@ -72,8 +72,11 @@ func ValidateContractAccountToken(ctx context.Context, provider *ethrpc.Provider
 		return false, "", fmt.Errorf("ValidateContractAccountToken failed. HexDecode of token.signature failed - %w", err)
 	}
 
+	// must hash the message as first argument to isValidSignature
+	messageHash := ethcoder.Keccak256(messageDigest)
+
 	input, err := ethcoder.AbiEncodeMethodCalldata("isValidSignature(bytes32,bytes)", []interface{}{
-		ethcoder.BytesToBytes32(messageDigest),
+		ethcoder.BytesToBytes32(messageHash),
 		signature,
 	})
 	if err != nil {
@@ -91,7 +94,7 @@ func ValidateContractAccountToken(ctx context.Context, provider *ethrpc.Provider
 		return false, "", fmt.Errorf("ValidateContractAccountToken failed. Provider CallContract failed - %w", err)
 	}
 
-	isValid := len(output) >= 4 && IsValidSignatureBytes32 == ethcoder.HexEncode(output[:4])
+	isValid := len(output) >= 4 && IsValidSignatureBytes32MagicValue == ethcoder.HexEncode(output[:4])
 	if !isValid {
 		return false, "", fmt.Errorf("ValidateContractAccountToken failed. invalid signature")
 	}
@@ -100,7 +103,7 @@ func ValidateContractAccountToken(ctx context.Context, provider *ethrpc.Provider
 
 const (
 	// IsValidSignatureBytes32 is the EIP-1271 magic value we test
-	IsValidSignatureBytes32 = "0x1626ba7e"
+	IsValidSignatureBytes32MagicValue = "0x1626ba7e"
 )
 
 // Validate the public key address of an Ethereum signed message
