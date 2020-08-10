@@ -44,7 +44,7 @@ func New(validators ...ValidatorFunc) (*ETHWebToken, error) {
 	return ewt, nil
 }
 
-func (w *ETHWebToken) ConfigJsonRpcProvider(ethereumJsonRpcURL string) error {
+func (w *ETHWebToken) ConfigJsonRpcProvider(ethereumJsonRpcURL string, optChainId ...int64) error {
 	var err error
 
 	w.provider, err = ethrpc.NewProvider(ethereumJsonRpcURL)
@@ -52,11 +52,15 @@ func (w *ETHWebToken) ConfigJsonRpcProvider(ethereumJsonRpcURL string) error {
 		return err
 	}
 
-	chainID, err := w.provider.ChainID(context.Background())
-	if err != nil {
-		return err
+	if len(optChainId) > 0 {
+		w.chainID = big.NewInt(optChainId[0])
+	} else {
+		chainID, err := w.provider.ChainID(context.Background())
+		if err != nil {
+			return err
+		}
+		w.chainID = chainID
 	}
-	w.chainID = chainID
 
 	w.ethereumJsonRpcURL = ethereumJsonRpcURL
 	return nil
