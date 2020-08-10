@@ -37,6 +37,10 @@ func New(validators ...ValidatorFunc) (*ETHWebToken, error) {
 	if len(ewt.validators) == 0 {
 		ewt.validators = []ValidatorFunc{ValidateEOAToken, ValidateContractAccountToken}
 	}
+	err := ewt.ConfigValidators(ewt.validators...)
+	if err != nil {
+		return nil, err
+	}
 	return ewt, nil
 }
 
