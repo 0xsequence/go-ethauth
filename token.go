@@ -58,8 +58,8 @@ func (c *Claims) SetExpiryIn(tm time.Duration) {
 
 func (c Claims) Valid() error {
 	now := time.Now().Unix()
-	drift := int64(5 * 60)                                                // 5 minutes
-	max := int64(time.Duration((time.Hour * 24 * 365) + drift).Seconds()) // 1 year
+	drift := int64(5 * 60)                                          // 5 minutes
+	max := int64(time.Duration(time.Hour*24*365).Seconds()) + drift // 1 year
 
 	if c.EWTVersion == "" {
 		return fmt.Errorf("claims: ewt version is empty")
