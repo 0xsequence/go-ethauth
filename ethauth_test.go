@@ -1,4 +1,4 @@
-package ethwebtoken
+package ethauth
 
 import (
 	"strings"
@@ -24,7 +24,7 @@ func TestClaims(t *testing.T) {
 }
 
 func TestEncodeDecodeFromEOA(t *testing.T) {
-	ewt, err := New()
+	ethAuth, err := New()
 	assert.NoError(t, err)
 
 	wallet, err := ethwallet.NewWalletFromMnemonic("outdoor sentence roast truly flower surface power begin ocean silent debate funny")
@@ -36,10 +36,10 @@ func TestEncodeDecodeFromEOA(t *testing.T) {
 	// fmt.Println("=> exp", exp)
 
 	claims := Claims{
-		App: "EWTTest",
+		App: "ETHAuthTest",
 		// IssuedAt:   iat,
 		// ExpiresAt:  exp,
-		EWTVersion: EWTVersion,
+		ETHAuthVersion: ETHAuthVersion,
 	}
 	claims.SetIssuedAtNow()
 	claims.SetExpiryIn(time.Duration(5 * time.Minute))
@@ -56,40 +56,38 @@ func TestEncodeDecodeFromEOA(t *testing.T) {
 	assert.NoError(t, err)
 	sigHex := ethcoder.HexEncode(sig)
 
-	// encode the ewt
-	token := NewToken()
-	token.Address = wallet.Address().String()
-	token.Claims = claims
-	token.Signature = sigHex
+	// encode the proof
+	proof := NewProof()
+	proof.Address = wallet.Address().String()
+	proof.Claims = claims
+	proof.Signature = sigHex
 
-	tokenString, err := ewt.EncodeToken(token)
+	proofString, err := ethAuth.EncodeProof(proof)
 	assert.NoError(t, err)
-	assert.True(t, strings.HasPrefix(tokenString, EWTPrefix))
+	assert.True(t, strings.HasPrefix(proofString, ETHAuthPrefix))
 
-	// fmt.Println("tokenString", tokenString)
-
-	// decode the ewt
-	ok, token, err := ewt.DecodeToken(tokenString)
+	// decode the proof
+	ok, proof, err := ethAuth.DecodeProof(proofString)
 	assert.NoError(t, err)
 	assert.True(t, ok)
-	assert.NotNil(t, ewt)
-	assert.Equal(t, strings.ToLower(wallet.Address().String()), token.Address)
+	assert.NotNil(t, ethAuth)
+	assert.Equal(t, strings.ToLower(wallet.Address().String()), proof.Address)
 
 	// fmt.Println("==> address", wallet.Address().String())
-	// fmt.Println("==> tokenString", tokenString)
-	// fmt.Println("==> claims", token.Claims().Map())
+	// fmt.Println("==> proofString", proofString)
+	// fmt.Println("==> claims", proof.Claims().Map())
 }
 
-func TestTokenClaims(t *testing.T) {
+func TestProofClaims(t *testing.T) {
 	extraSecs := int64(10 * 60) // 10 minutes
 
 	// valid claims
 	{
 		claims := Claims{
-			App:        "TestTokenClaims",
-			IssuedAt:   time.Now().Unix(),
-			ExpiresAt:  time.Now().Unix() + extraSecs,
-			EWTVersion: EWTVersion,
+			App:            "TestProofClaims",
+			IssuedAt:       time.Now().Unix(),
+			ExpiresAt:      time.Now().Unix() + extraSecs,
+			ETHAuthVersion: ETHAuthVersion,
 		}
 		assert.NoError(t, claims.Valid())
 
@@ -99,38 +97,38 @@ func TestTokenClaims(t *testing.T) {
 	{
 		// invalid -- issuedAt is in the future
 		claims := Claims{
-			App:        "TestTokenClaims",
-			IssuedAt:   time.Now().Unix() + extraSecs,
-			ExpiresAt:  time.Now().Unix() + extraSecs,
-			EWTVersion: EWTVersion,
+			App:            "TestProofClaims",
+			IssuedAt:       time.Now().Unix() + extraSecs,
+			ExpiresAt:      time.Now().Unix() + extraSecs,
+			ETHAuthVersion: ETHAuthVersion,
 		}
 		assert.Error(t, claims.Valid())
 		assert.Contains(t, claims.Valid().Error(), "iat")
 
 		// invalid -- issuedAt is unset
 		claims = Claims{
-			App:        "TestTokenClaims",
-			ExpiresAt:  time.Now().Unix() + extraSecs,
-			EWTVersion: EWTVersion,
+			App:            "TestProofClaims",
+			ExpiresAt:      time.Now().Unix() + extraSecs,
+			ETHAuthVersion: ETHAuthVersion,
 		}
 		assert.Error(t, claims.Valid())
 		assert.Contains(t, claims.Valid().Error(), "iat")
 
 		// invalid -- expiry is in the past
 		claims = Claims{
-			App:        "TestTokenClaims",
-			IssuedAt:   time.Now().Unix(),
-			ExpiresAt:  time.Now().Unix() - extraSecs,
-			EWTVersion: EWTVersion,
+			App:            "TestProofClaims",
+			IssuedAt:       time.Now().Unix(),
+			ExpiresAt:      time.Now().Unix() - extraSecs,
+			ETHAuthVersion: ETHAuthVersion,
 		}
 		assert.Error(t, claims.Valid())
 		assert.Contains(t, claims.Valid().Error(), "expired")
 
 		// invalid -- expiry is unset
 		claims = Claims{
-			App:        "TestTokenClaims",
-			IssuedAt:   time.Now().Unix(),
-			EWTVersion: EWTVersion,
+			App:            "TestProofClaims",
+			IssuedAt:       time.Now().Unix(),
+			ETHAuthVersion: ETHAuthVersion,
 		}
 		assert.Error(t, claims.Valid())
 		assert.Contains(t, claims.Valid().Error(), "expired")

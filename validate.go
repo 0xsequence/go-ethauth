@@ -1,4 +1,4 @@
-package ethwebtoken
+package ethauth
 
 import (
 	"context"
@@ -14,62 +14,61 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-type ValidatorFunc func(ctx context.Context, provider *ethrpc.Provider, chainID *big.Int, token *Token) (bool, string, error)
+type ValidatorFunc func(ctx context.Context, provider *ethrpc.Provider, chainID *big.Int, proof *Proof) (bool, string, error)
 
-// ValidateEOAToken verifies the account proof of the provided ewt, testing if the
-// token has been signed with an EOA (externally owned account) and will return
-// success/failture, the account address as a string, and any errors.
-func ValidateEOAToken(ctx context.Context, provider *ethrpc.Provider, chainID *big.Int, token *Token) (bool, string, error) {
-	// Compute eip712 message digest from the token claims
-	messageDigest, err := token.MessageDigest()
+// ValidateEOAProof verifies the account proof, testing if the proof claims have been signed with an
+// EOA (externally owned account) and will return success/failture, the account address as a string, and any errors.
+func ValidateEOAProof(ctx context.Context, provider *ethrpc.Provider, chainID *big.Int, proof *Proof) (bool, string, error) {
+	// Compute eip712 message digest from the proof claims
+	messageDigest, err := proof.MessageDigest()
 	if err != nil {
-		return false, "", fmt.Errorf("ValidateEOAToken failed. Unable to compute token message digest, because %w", err)
+		return false, "", fmt.Errorf("ValidateEOAProof failed. Unable to compute ethauth message digest, because %w", err)
 	}
 
-	isValid, err := ValidateEOASignature(token.Address, messageDigest, token.Signature)
+	isValid, err := ValidateEOASignature(proof.Address, messageDigest, proof.Signature)
 	if err != nil {
 		return false, "", err
 	}
 	if !isValid {
-		return false, "", fmt.Errorf("ValidateEOAToken failed. invalid EOA signature")
+		return false, "", fmt.Errorf("ValidateEOAProof failed. invalid EOA signature")
 	}
-	return true, token.Address, nil
+	return true, proof.Address, nil
 }
 
-// ValidateContractAccountToken verifies the account proof of the provided ewt, testing if the
-// token has been signed with a smart-contract based account by calling the EIP-1271
+// ValidateContractAccountProof verifies the account proof, testing if the
+// proof claims have been signed with a smart-contract based account by calling the EIP-1271
 // method of the remote contract. This method will return success/failure, the
 // account address as a string, and any errors. The wallet contract must be deployed in
 // order for this call to be successful. In order test an undeployed smart-wallet, you
 // will have to implement your own custom validator method.
-func ValidateContractAccountToken(ctx context.Context, provider *ethrpc.Provider, chainID *big.Int, token *Token) (bool, string, error) {
+func ValidateContractAccountProof(ctx context.Context, provider *ethrpc.Provider, chainID *big.Int, proof *Proof) (bool, string, error) {
 	if provider == nil {
-		return false, "", fmt.Errorf("ValidateContractAccountToken failed. provider is nil")
+		return false, "", fmt.Errorf("ValidateContractAccountProof failed. provider is nil")
 	}
 	if chainID == nil {
-		return false, "", fmt.Errorf("ValidateContractAccountToken failed. chainID is nil")
+		return false, "", fmt.Errorf("ValidateContractAccountProof failed. chainID is nil")
 	}
 
-	// Compute eip712 message digest from the token claims
-	messageDigest, err := token.MessageDigest()
+	// Compute eip712 message digest from the proof claims
+	messageDigest, err := proof.MessageDigest()
 	if err != nil {
-		return false, "", fmt.Errorf("ValidateEOAToken failed. Unable to compute token message digest, because %w", err)
+		return false, "", fmt.Errorf("ValidateContractAccountProof failed. Unable to compute ethauth message digest, because %w", err)
 	}
 
 	// Early check to ensure the contract wallet has been deployed
-	walletCode, err := provider.CodeAt(ctx, common.HexToAddress(token.Address), nil)
+	walletCode, err := provider.CodeAt(ctx, common.HexToAddress(proof.Address), nil)
 	if err != nil {
-		return false, "", fmt.Errorf("ValidateContractAccountToken failed. unable to fetch wallet contract code - %w", err)
+		return false, "", fmt.Errorf("ValidateContractAccountProof failed. unable to fetch wallet contract code - %w", err)
 	}
 	if len(walletCode) == 0 {
-		return false, "", fmt.Errorf("ValidateContractAccountToken failed. unable to fetch wallet contract code, likely wallet has not been deployed")
+		return false, "", fmt.Errorf("ValidateContractAccountProof failed. unable to fetch wallet contract code, likely wallet has not been deployed")
 	}
 
 	// Call EIP-1271 IsValidSignature(bytes32, bytes) method on the deployed wallet. Note: for undeployed
 	// wallets, you will need to implement your own ValidatorFunc with the additional context.
-	signature, err := ethcoder.HexDecode(token.Signature)
+	signature, err := ethcoder.HexDecode(proof.Signature)
 	if err != nil {
-		return false, "", fmt.Errorf("ValidateContractAccountToken failed. HexDecode of token.signature failed - %w", err)
+		return false, "", fmt.Errorf("ValidateContractAccountProof failed. HexDecode of proof.signature failed - %w", err)
 	}
 
 	// must hash the message as first argument to isValidSignature
@@ -80,10 +79,10 @@ func ValidateContractAccountToken(ctx context.Context, provider *ethrpc.Provider
 		signature,
 	})
 	if err != nil {
-		return false, "", fmt.Errorf("ValidateContractAccountToken failed. EncodeMethodCalldata error")
+		return false, "", fmt.Errorf("ValidateContractAccountProof failed. EncodeMethodCalldata error")
 	}
 
-	toAddress := common.HexToAddress(token.Address)
+	toAddress := common.HexToAddress(proof.Address)
 	txMsg := ethereum.CallMsg{
 		To:   &toAddress,
 		Data: input,
@@ -91,14 +90,14 @@ func ValidateContractAccountToken(ctx context.Context, provider *ethrpc.Provider
 
 	output, err := provider.CallContract(context.Background(), txMsg, nil)
 	if err != nil {
-		return false, "", fmt.Errorf("ValidateContractAccountToken failed. Provider CallContract failed - %w", err)
+		return false, "", fmt.Errorf("ValidateContractAccountProof failed. Provider CallContract failed - %w", err)
 	}
 
 	isValid := len(output) >= 4 && IsValidSignatureBytes32MagicValue == ethcoder.HexEncode(output[:4])
 	if !isValid {
-		return false, "", fmt.Errorf("ValidateContractAccountToken failed. invalid signature")
+		return false, "", fmt.Errorf("ValidateContractAccountProof failed. invalid signature")
 	}
-	return true, token.Address, nil
+	return true, proof.Address, nil
 }
 
 const (

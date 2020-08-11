@@ -1,4 +1,4 @@
-package ethwebtoken
+package ethauth
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"github.com/arcadeum/ethkit/ethcoder"
 )
 
-type Token struct {
+type Proof struct {
 	// "eth" prefix
 	Prefix string
 
@@ -19,33 +19,37 @@ type Token struct {
 
 	// Signature of the message by the account address above (in hex)
 	Signature string
+
+	// Extra bytes in hex format used for signature validation
+	// ie. useful for counterfactual smart allets
+	Extra string
 }
 
-func NewToken() *Token {
-	return &Token{
-		Prefix: EWTPrefix,
+func NewProof() *Proof {
+	return &Proof{
+		Prefix: ETHAuthPrefix,
 		Claims: Claims{
-			EWTVersion: EWTVersion,
+			ETHAuthVersion: ETHAuthVersion,
 		},
 	}
 }
 
-func (t *Token) MessageDigest() ([]byte, error) {
+func (t *Proof) MessageDigest() ([]byte, error) {
 	return t.Claims.MessageDigest()
 }
 
-func (t *Token) MessageTypedData() (*ethcoder.TypedData, error) {
+func (t *Proof) MessageTypedData() (*ethcoder.TypedData, error) {
 	return t.Claims.TypedData()
 }
 
 type Claims struct {
-	App        string `json:"app,omitempty"`
-	IssuedAt   int64  `json:"iat,omitempty"`
-	ExpiresAt  int64  `json:"exp,omitempty"`
-	Nonce      uint64 `json:"n,omitempty"`
-	Type       string `json:"typ,omitempty"`
-	Origin     string `json:"ogn,omitempty"`
-	EWTVersion string `json:"v,omitempty"`
+	App            string `json:"app,omitempty"`
+	IssuedAt       int64  `json:"iat,omitempty"`
+	ExpiresAt      int64  `json:"exp,omitempty"`
+	Nonce          uint64 `json:"n,omitempty"`
+	Type           string `json:"typ,omitempty"`
+	Origin         string `json:"ogn,omitempty"`
+	ETHAuthVersion string `json:"v,omitempty"`
 }
 
 func (c *Claims) SetIssuedAtNow() {
@@ -61,8 +65,8 @@ func (c Claims) Valid() error {
 	drift := int64(5 * 60)                                          // 5 minutes
 	max := int64(time.Duration(time.Hour*24*365).Seconds()) + drift // 1 year
 
-	if c.EWTVersion == "" {
-		return fmt.Errorf("claims: ewt version is empty")
+	if c.ETHAuthVersion == "" {
+		return fmt.Errorf("claims: ethauth version is empty")
 	}
 	if c.App == "" {
 		return fmt.Errorf("claims: app is empty")
@@ -71,7 +75,7 @@ func (c Claims) Valid() error {
 		return fmt.Errorf("claims: iat is invalid")
 	}
 	if c.ExpiresAt < now-drift || c.ExpiresAt > now+max {
-		return fmt.Errorf("claims: token has expired")
+		return fmt.Errorf("claims: proof has expired")
 	}
 
 	return nil
@@ -97,8 +101,8 @@ func (c Claims) Map() map[string]interface{} {
 	if c.Origin != "" {
 		m["ogn"] = c.Origin
 	}
-	if c.EWTVersion != "" {
-		m["v"] = c.EWTVersion
+	if c.ETHAuthVersion != "" {
+		m["v"] = c.ETHAuthVersion
 	}
 	return m
 }
@@ -118,7 +122,7 @@ func (c Claims) TypedData() (*ethcoder.TypedData, error) {
 	}
 
 	if len(td.Message) == 0 {
-		return nil, fmt.Errorf("ethwebtoken: claims is empty")
+		return nil, fmt.Errorf("ethauth: claims is empty")
 	}
 
 	claimsType := []ethcoder.TypedDataArgument{}
@@ -140,7 +144,7 @@ func (c Claims) TypedData() (*ethcoder.TypedData, error) {
 	if c.Origin != "" {
 		claimsType = append(claimsType, ethcoder.TypedDataArgument{Name: "ogn", Type: "string"})
 	}
-	if c.EWTVersion != "" {
+	if c.ETHAuthVersion != "" {
 		claimsType = append(claimsType, ethcoder.TypedDataArgument{Name: "v", Type: "string"})
 	}
 	td.Types["Claims"] = claimsType
@@ -155,11 +159,13 @@ func (c Claims) MessageDigest() ([]byte, error) {
 
 	typedData, err := c.TypedData()
 	if err != nil {
-		return nil, fmt.Errorf("ethwebtoken: failed to compute claims typed data - %w", err)
+		return nil, fmt.Errorf("ethauth: failed to compute claims typed data - %w", err)
 	}
+
 	digest, err := typedData.EncodeDigest()
 	if err != nil {
-		return nil, fmt.Errorf("ethwebtoken: failed to compute claims message digest - %w", err)
+		return nil, fmt.Errorf("ethauth: failed to compute claims message digest - %w", err)
 	}
+
 	return digest, nil
 }
