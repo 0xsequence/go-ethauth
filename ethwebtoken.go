@@ -181,6 +181,10 @@ func (w *ETHWebToken) ValidateTokenSignature(token *Token) bool {
 	for i, v := range w.validators {
 		isValid, _, _ := v(context.Background(), w.provider, w.chainID, token)
 		retIsValid[i] = isValid
+		if isValid {
+			// preemptively return true if we've determined it to be valid
+			return true
+		}
 	}
 
 	// Valid if one of the validators says so
