@@ -21,7 +21,7 @@ type Proof struct {
 	Signature string
 
 	// Extra bytes in hex format used for signature validation
-	// ie. useful for counterfactual smart allets
+	// ie. useful for counterfactual smart wallets
 	Extra string
 }
 

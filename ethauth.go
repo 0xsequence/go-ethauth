@@ -85,6 +85,9 @@ func (w *ETHAuth) EncodeProof(proof *Proof) (string, error) {
 	if proof.Signature == "" || proof.Signature[0:2] != "0x" {
 		return "", fmt.Errorf("ethauth: signature")
 	}
+	if proof.Extra != "" && !strings.HasPrefix(proof.Extra, "0x") {
+		return "", fmt.Errorf("ethauth: invalid extra encoding, expecting hex data")
+	}
 
 	// Validate proof signature and claims
 	_, err := w.ValidateProof(proof)
