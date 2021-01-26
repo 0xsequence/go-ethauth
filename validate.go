@@ -6,8 +6,8 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/arcadeum/ethkit/ethcoder"
-	"github.com/arcadeum/ethkit/ethrpc"
+	"github.com/0xsequence/ethkit/ethcoder"
+	"github.com/0xsequence/ethkit/ethrpc"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"

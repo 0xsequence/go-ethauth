@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/arcadeum/ethkit/ethcoder"
+	"github.com/0xsequence/ethkit/ethcoder"
 )
 
 type Proof struct {
