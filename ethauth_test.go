@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/arcadeum/ethkit/ethcoder"
-	"github.com/arcadeum/ethkit/ethwallet"
+	"github.com/0xsequence/ethkit/ethcoder"
+	"github.com/0xsequence/ethkit/ethwallet"
 	"github.com/stretchr/testify/assert"
 )
 

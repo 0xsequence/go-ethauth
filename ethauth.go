@@ -9,8 +9,8 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/arcadeum/ethkit/ethcoder"
-	"github.com/arcadeum/ethkit/ethrpc"
+	"github.com/0xsequence/ethkit/ethcoder"
+	"github.com/0xsequence/ethkit/ethrpc"
 )
 
 type ETHAuth struct {
