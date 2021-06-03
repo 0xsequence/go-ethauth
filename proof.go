@@ -71,10 +71,10 @@ func (c Claims) Valid() error {
 	if c.App == "" {
 		return fmt.Errorf("claims: app is empty")
 	}
-	if c.IssuedAt > now+drift || c.IssuedAt < now-max {
-		return fmt.Errorf("claims: iat is invalid")
+	if c.IssuedAt > now+drift {
+		return fmt.Errorf("claims: proof is issued from the future - check if device clock is synced.")
 	}
-	if c.ExpiresAt < now-drift || c.ExpiresAt > now+max {
+	if c.ExpiresAt < now-drift || c.ExpiresAt > now+max || c.IssuedAt < now-max {
 		return fmt.Errorf("claims: proof has expired")
 	}
 
