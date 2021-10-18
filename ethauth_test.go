@@ -103,7 +103,7 @@ func TestProofClaims(t *testing.T) {
 			ETHAuthVersion: ETHAuthVersion,
 		}
 		assert.Error(t, claims.Valid())
-		assert.Contains(t, claims.Valid().Error(), "iat")
+		assert.Contains(t, claims.Valid().Error(), "from the future")
 
 		// invalid -- issuedAt is unset
 		claims = Claims{
