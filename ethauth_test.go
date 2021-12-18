@@ -105,15 +105,6 @@ func TestProofClaims(t *testing.T) {
 		assert.Error(t, claims.Valid())
 		assert.Contains(t, claims.Valid().Error(), "from the future")
 
-		// invalid -- issuedAt is unset
-		claims = Claims{
-			App:            "TestProofClaims",
-			ExpiresAt:      time.Now().Unix() + extraSecs,
-			ETHAuthVersion: ETHAuthVersion,
-		}
-		assert.Error(t, claims.Valid())
-		assert.Contains(t, claims.Valid().Error(), "iat")
-
 		// invalid -- expiry is in the past
 		claims = Claims{
 			App:            "TestProofClaims",

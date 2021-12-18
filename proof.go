@@ -74,9 +74,6 @@ func (c Claims) Valid() error {
 	if c.IssuedAt > now+drift {
 		return fmt.Errorf("claims: proof is issued from the future - check if device clock is synced.")
 	}
-	if c.IssuedAt == 0 {
-		return fmt.Errorf("claims: proof iat is empty")
-	}
 	if c.ExpiresAt < now-drift || c.ExpiresAt > now+max || c.IssuedAt < now-max {
 		return fmt.Errorf("claims: proof has expired")
 	}
