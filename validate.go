@@ -71,11 +71,8 @@ func ValidateContractAccountProof(ctx context.Context, provider *ethrpc.Provider
 		return false, "", fmt.Errorf("ValidateContractAccountProof failed. HexDecode of proof.signature failed - %w", err)
 	}
 
-	// must hash the message as first argument to isValidSignature
-	messageHash := ethcoder.Keccak256(messageDigest)
-
 	input, err := ethcoder.AbiEncodeMethodCalldata("isValidSignature(bytes32,bytes)", []interface{}{
-		ethcoder.BytesToBytes32(messageHash),
+		ethcoder.BytesToBytes32(messageDigest),
 		signature,
 	})
 	if err != nil {
