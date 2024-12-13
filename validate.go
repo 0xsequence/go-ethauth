@@ -125,27 +125,4 @@ func ValidateEOASignature(address string, message []byte, signatureHex string) (
 		return false, fmt.Errorf("ValidateEOASignature, invalid signature")
 	}
 	return true, nil
-
-	// msg := fmt.Sprintf("\x19Ethereum Signed Message:\n%v%s", len(message), message)
-	// sig, err := hexutil.Decode(signatureHex)
-	// if err != nil {
-	// 	return false, fmt.Errorf("ValidateEOASignature, signature is an invalid hex string")
-	// }
-	// if len(sig) != 65 {
-	// 	return false, fmt.Errorf("ValidateEOASignature, signature is not of proper length")
-	// }
-	// hash := crypto.Keccak256([]byte(msg))
-	// if sig[64] > 1 {
-	// 	sig[64] -= 27 // recovery ID
-	// }
-
-	// pubkey, err := crypto.SigToPub(hash, sig)
-	// if err != nil {
-	// 	return false, err
-	// }
-	// key := crypto.PubkeyToAddress(*pubkey).Hex()
-	// if strings.ToLower(key) == strings.ToLower(address) {
-	// 	return true, nil
-	// }
-	// return false, fmt.Errorf("ValidateEOASignature, invalid signature")
 }
