@@ -4,14 +4,13 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"strings"
 
 	"github.com/0xsequence/ethkit/ethcoder"
 	"github.com/0xsequence/ethkit/ethrpc"
+	"github.com/0xsequence/ethkit/ethwallet"
 	"github.com/0xsequence/ethkit/go-ethereum"
 	"github.com/0xsequence/ethkit/go-ethereum/common"
 	"github.com/0xsequence/ethkit/go-ethereum/common/hexutil"
-	"github.com/0xsequence/ethkit/go-ethereum/crypto"
 )
 
 type ValidatorFunc func(ctx context.Context, provider *ethrpc.Provider, chainID *big.Int, proof *Proof) (bool, string, error)
@@ -19,13 +18,13 @@ type ValidatorFunc func(ctx context.Context, provider *ethrpc.Provider, chainID 
 // ValidateEOAProof verifies the account proof, testing if the proof claims have been signed with an
 // EOA (externally owned account) and will return success/failture, the account address as a string, and any errors.
 func ValidateEOAProof(ctx context.Context, provider *ethrpc.Provider, chainID *big.Int, proof *Proof) (bool, string, error) {
-	// Compute eip712 message digest from the proof claims
-	messageDigest, err := proof.MessageDigest()
+	// Compute eip712 encoded message from the proof claims
+	message, err := proof.Message()
 	if err != nil {
 		return false, "", fmt.Errorf("ValidateEOAProof failed. Unable to compute ethauth message digest, because %w", err)
 	}
 
-	isValid, err := ValidateEOASignature(proof.Address, messageDigest, proof.Signature)
+	isValid, err := ValidateEOASignature(proof.Address, message, proof.Signature)
 	if err != nil {
 		return false, "", err
 	}
@@ -71,7 +70,7 @@ func ValidateContractAccountProof(ctx context.Context, provider *ethrpc.Provider
 		return false, "", fmt.Errorf("ValidateContractAccountProof failed. HexDecode of proof.signature failed - %w", err)
 	}
 
-	input, err := ethcoder.AbiEncodeMethodCalldata("isValidSignature(bytes32,bytes)", []interface{}{
+	input, err := ethcoder.ABIEncodeMethodCalldata("isValidSignature(bytes32,bytes)", []interface{}{
 		ethcoder.BytesToBytes32(messageDigest),
 		signature,
 	})
@@ -110,26 +109,43 @@ func ValidateEOASignature(address string, message []byte, signatureHex string) (
 	if len(message) < 1 || len(signatureHex) < 1 {
 		return false, fmt.Errorf("ValidateEOASignature, message and signature must not be empty")
 	}
-	msg := fmt.Sprintf("\x19Ethereum Signed Message:\n%v%s", len(message), message)
+
 	sig, err := hexutil.Decode(signatureHex)
 	if err != nil {
 		return false, fmt.Errorf("ValidateEOASignature, signature is an invalid hex string")
 	}
-	if len(sig) != 65 {
-		return false, fmt.Errorf("ValidateEOASignature, signature is not of proper length")
-	}
-	hash := crypto.Keccak256([]byte(msg))
-	if sig[64] > 1 {
-		sig[64] -= 27 // recovery ID
-	}
 
-	pubkey, err := crypto.SigToPub(hash, sig)
+	isValid, err := ethwallet.IsValid191Signature(common.HexToAddress(address), message, sig)
 	if err != nil {
-		return false, err
+		fmt.Println("NO1")
+		return false, fmt.Errorf("ValidateEOASignature, invalid signature")
 	}
-	key := crypto.PubkeyToAddress(*pubkey).Hex()
-	if strings.ToLower(key) == strings.ToLower(address) {
-		return true, nil
+	if !isValid {
+		fmt.Println("NO2")
+		return false, fmt.Errorf("ValidateEOASignature, invalid signature")
 	}
-	return false, fmt.Errorf("ValidateEOASignature, invalid signature")
+	return true, nil
+
+	// msg := fmt.Sprintf("\x19Ethereum Signed Message:\n%v%s", len(message), message)
+	// sig, err := hexutil.Decode(signatureHex)
+	// if err != nil {
+	// 	return false, fmt.Errorf("ValidateEOASignature, signature is an invalid hex string")
+	// }
+	// if len(sig) != 65 {
+	// 	return false, fmt.Errorf("ValidateEOASignature, signature is not of proper length")
+	// }
+	// hash := crypto.Keccak256([]byte(msg))
+	// if sig[64] > 1 {
+	// 	sig[64] -= 27 // recovery ID
+	// }
+
+	// pubkey, err := crypto.SigToPub(hash, sig)
+	// if err != nil {
+	// 	return false, err
+	// }
+	// key := crypto.PubkeyToAddress(*pubkey).Hex()
+	// if strings.ToLower(key) == strings.ToLower(address) {
+	// 	return true, nil
+	// }
+	// return false, fmt.Errorf("ValidateEOASignature, invalid signature")
 }

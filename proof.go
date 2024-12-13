@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/0xsequence/ethkit/ethcoder"
+	"github.com/0xsequence/ethkit/go-ethereum/crypto"
 )
 
 type Proof struct {
@@ -32,6 +33,10 @@ func NewProof() *Proof {
 			ETHAuthVersion: ETHAuthVersion,
 		},
 	}
+}
+
+func (t *Proof) Message() ([]byte, error) {
+	return t.Claims.Message()
 }
 
 func (t *Proof) MessageDigest() ([]byte, error) {
@@ -152,7 +157,7 @@ func (c Claims) TypedData() (*ethcoder.TypedData, error) {
 	return td, nil
 }
 
-func (c Claims) MessageDigest() ([]byte, error) {
+func (c Claims) Message() ([]byte, error) {
 	if err := c.Valid(); err != nil {
 		return nil, fmt.Errorf("claims are invalid - %w", err)
 	}
@@ -162,10 +167,19 @@ func (c Claims) MessageDigest() ([]byte, error) {
 		return nil, fmt.Errorf("ethauth: failed to compute claims typed data - %w", err)
 	}
 
-	digest, err := typedData.EncodeDigest()
+	_, encodedTypedData, err := typedData.Encode()
+	if err != nil {
+		return nil, fmt.Errorf("ethauth: failed to encode claims typed data - %w", err)
+	}
+
+	return encodedTypedData, nil
+}
+
+func (c Claims) MessageDigest() ([]byte, error) {
+	encodedTypedData, err := c.Message()
 	if err != nil {
 		return nil, fmt.Errorf("ethauth: failed to compute claims message digest - %w", err)
 	}
-
+	digest := crypto.Keccak256(encodedTypedData)
 	return digest, nil
 }
