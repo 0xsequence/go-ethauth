@@ -3,7 +3,7 @@ module github.com/0xsequence/go-ethauth
 go 1.22
 
 require (
-	github.com/0xsequence/ethkit v1.30.1
+	github.com/0xsequence/ethkit v1.30.2
 	github.com/stretchr/testify v1.9.0
 )
 
