@@ -7,7 +7,7 @@ import (
 
 	"github.com/0xsequence/ethkit/ethcoder"
 	"github.com/0xsequence/ethkit/ethwallet"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestClaims(t *testing.T) {
@@ -17,18 +17,18 @@ func TestClaims(t *testing.T) {
 	}
 
 	typedData, err := claims.TypedData()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	_, err = typedData.EncodeDigest()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestEncodeDecodeFromEOA(t *testing.T) {
 	ethAuth, err := New()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	wallet, err := ethwallet.NewWalletFromMnemonic("outdoor sentence roast truly flower surface power begin ocean silent debate funny")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// iat := time.Now().Unix()
 	// exp := time.Now().Unix() + int64(time.Duration(time.Hour*24*365).Seconds()) //int64(time.Duration(time.Minute*5).Seconds())
@@ -43,17 +43,17 @@ func TestEncodeDecodeFromEOA(t *testing.T) {
 	}
 	claims.SetIssuedAtNow()
 	claims.SetExpiryIn(time.Duration(5 * time.Minute))
-	assert.NoError(t, claims.Valid())
+	require.NoError(t, claims.Valid())
 
 	// sign the message sub-digest
-	messageDigest, err := claims.MessageDigest()
-	assert.NoError(t, err)
+	encodedTypedData, err := claims.Message()
+	require.NoError(t, err)
 
 	// digestHex := ethcoder.HexEncode(messageDigest)
 	// fmt.Println("=> digestHex", digestHex)
 
-	sig, err := wallet.SignMessage(messageDigest)
-	assert.NoError(t, err)
+	sig, err := wallet.SignData(encodedTypedData)
+	require.NoError(t, err)
 	sigHex := ethcoder.HexEncode(sig)
 
 	// encode the proof
@@ -63,15 +63,15 @@ func TestEncodeDecodeFromEOA(t *testing.T) {
 	proof.Signature = sigHex
 
 	proofString, err := ethAuth.EncodeProof(proof)
-	assert.NoError(t, err)
-	assert.True(t, strings.HasPrefix(proofString, ETHAuthPrefix))
+	require.NoError(t, err)
+	require.True(t, strings.HasPrefix(proofString, ETHAuthPrefix))
 
 	// decode the proof
 	ok, proof, err := ethAuth.DecodeProof(proofString)
-	assert.NoError(t, err)
-	assert.True(t, ok)
-	assert.NotNil(t, ethAuth)
-	assert.Equal(t, strings.ToLower(wallet.Address().String()), proof.Address)
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.NotNil(t, ethAuth)
+	require.Equal(t, strings.ToLower(wallet.Address().String()), proof.Address)
 
 	// fmt.Println("==> address", wallet.Address().String())
 	// fmt.Println("==> proofString", proofString)
@@ -89,7 +89,7 @@ func TestProofClaims(t *testing.T) {
 			ExpiresAt:      time.Now().Unix() + extraSecs,
 			ETHAuthVersion: ETHAuthVersion,
 		}
-		assert.NoError(t, claims.Valid())
+		require.NoError(t, claims.Valid())
 
 	}
 
@@ -102,8 +102,8 @@ func TestProofClaims(t *testing.T) {
 			ExpiresAt:      time.Now().Unix() + extraSecs,
 			ETHAuthVersion: ETHAuthVersion,
 		}
-		assert.Error(t, claims.Valid())
-		assert.Contains(t, claims.Valid().Error(), "from the future")
+		require.Error(t, claims.Valid())
+		require.Contains(t, claims.Valid().Error(), "from the future")
 
 		// invalid -- expiry is in the past
 		claims = Claims{
@@ -112,8 +112,8 @@ func TestProofClaims(t *testing.T) {
 			ExpiresAt:      time.Now().Unix() - extraSecs,
 			ETHAuthVersion: ETHAuthVersion,
 		}
-		assert.Error(t, claims.Valid())
-		assert.Contains(t, claims.Valid().Error(), "expired")
+		require.Error(t, claims.Valid())
+		require.Contains(t, claims.Valid().Error(), "expired")
 
 		// invalid -- expiry is unset
 		claims = Claims{
@@ -121,8 +121,8 @@ func TestProofClaims(t *testing.T) {
 			IssuedAt:       time.Now().Unix(),
 			ETHAuthVersion: ETHAuthVersion,
 		}
-		assert.Error(t, claims.Valid())
-		assert.Contains(t, claims.Valid().Error(), "expired")
+		require.Error(t, claims.Valid())
+		require.Contains(t, claims.Valid().Error(), "expired")
 	}
 
 }
